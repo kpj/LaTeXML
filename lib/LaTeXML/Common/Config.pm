@@ -21,6 +21,7 @@ use LaTeXML::Util::Pathname;
 use LaTeXML::Global;
 use LaTeXML::Common::Error;
 use Data::Dumper;
+use YAML::Tiny;
 our $PROFILES_DB = {};    # Class-wide, caches all profiles that get used while the server is alive
 our $is_bibtex  = qr/(^literal\:\s*\@)|(\.bib$)/;
 our $is_archive = qr/(^literal\:PK)|(\.zip$)/;
@@ -577,49 +578,29 @@ sub _checkOptionValue {
 ### This is from t/lib/TestDaemon.pm and ideally belongs in Util::Pathname
 sub _read_options_file {
   my ($file) = @_;
-  my $opts = [];
-  my $OPT;
   print STDERR "(Loading profile $file...";
-  unless (open($OPT, "<", $file)) {
-    Error('expected', $file, "Could not open options file '$file'");
-    return; }
-  while (my $line = <$OPT>) {
-    # Cleanup comments, padding on the input line.
-    $line =~ s/(?<!\\)#.*$//;    # Strip trailing comments starting w/ # (but \# is quoted)
-    $line =~ s/\\#/#/g;          # unslashify any \#
-    $line =~ s/^\s+//;           # Trim leading & trailing whitespace
-    $line =~ s/\s+$//;
-    next unless $line;           # if line isn't empty, after that.....
-    chomp($line);
-    if ($line =~ /(\S+)\s*=\s*(.*)/) {
-      my ($key, $value) = ($1, $2 || '');
-      $value =~ s/\s+$//;
-      # Special treatment for --path=$env:
-      if ($value =~ /^\$(.+)$/) {
-        my @values   = ();
-        my $env_name = $1;
-        my $env_value;
-        # Allow $env/foo paths, starting with $env prefixes
-        if ($env_name =~ /^([^\/]+)(\/+)(.+)$/) {
-          my $trailer = $3;
-          if (my $env_path = $ENV{$1}) {
-            $env_path .= '/' unless $env_path =~ /\/$/;
-            CORE::push @values, $env_path . $trailer; } }
-        else {
-          # But also the standard behaviour, where the $env is an array of paths
-          $env_value = $ENV{$env_name};
-          next unless $env_value;
-          @values = grep { -d $_ } reverse(split(':', $env_value));
-          next unless @values; }
-        CORE::push(@$opts, "--$key=$_") foreach (@values); }
+  my $opts = [];
+
+  my $yaml;
+  eval { $yaml = YAML::Tiny->read($file) }
+    or Error('invalid', $file, "Invalid options file '$file'");
+
+  my $config = $$yaml[0][0];
+  foreach ($$config{options}) {
+    foreach (@$_) {
+      my $key   = "";
+      my $value = "";
+
+      if (ref $_ eq ref {}) {
+        # --foo=bar
+        $key   = (CORE::keys %{$_})[0];
+        $value = $$_{$key}; }
       else {
-        $value = $value ? "=$value" : '';
-        CORE::push @$opts, "--$key" . $value; } }
-    else {
-      Warning('unexpected', $line, undef,
-        "Unrecognized configuration data '$line'"); }
-  }
-  close $OPT;
+        # --foo
+        $key = $_; }
+      $value = $value ? "=$value" : '';
+      CORE::push @$opts, "--$key" . $value; } }
+
   print STDERR " )\n";
   return $opts; }
 
