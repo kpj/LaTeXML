@@ -18,6 +18,7 @@ use Getopt::Long qw(:config no_ignore_case);
 use Pod::Usage;
 use Pod::Find qw(pod_where);
 use LaTeXML::Util::Pathname;
+use LaTeXML::Util::Plugin;
 use LaTeXML::Global;
 use LaTeXML::Common::Error;
 use Data::Dumper;
@@ -44,6 +45,7 @@ sub getopt_specification {
     "destination=s"   => \$$opts{destination},
     "log=s"           => \$$opts{log},
     "preload=s"       => \@{ $$opts{preload} },
+    "plugin=s"        => \@{ $$opts{plugin} },
     "preamble=s"      => \$$opts{preamble},
     "postamble=s"     => \$$opts{postamble},
     "base=s"          => \$$opts{base},
@@ -328,7 +330,7 @@ sub _obey_profile {
   if (%$profile_opts) {
     # Merge the new options with the profile defaults:
     for my $key (grep { defined $$opts{$_} } (CORE::keys %$opts)) {
-      if ($key =~ /^p(ath|reload)/) {    # Paths and preloads get merged in
+      if ($key =~ /^p(ath|reload|lugin)/) {    # Paths, preloads and plugins get merged in
         $$profile_opts{$key} = [] unless defined $$profile_opts{$key};
         foreach my $entry (@{ $$opts{$key} }) {
           my $new = 1;
@@ -338,11 +340,11 @@ sub _obey_profile {
           # If new to the array, push:
           CORE::push(@{ $$profile_opts{$key} }, $entry) if ($new);
         }
-      } else {                           # The other options get overwritten
+      } else {                                 # The other options get overwritten
         $$profile_opts{$key} = $$opts{$key};
       }
     }
-    %$opts = %$profile_opts;             # Move back into the user options
+    %$opts = %$profile_opts;                   # Move back into the user options
   }
   return; }
 
@@ -371,9 +373,11 @@ sub _prepare_options {
   if ($$opts{mathparse} eq 'no') {
     $$opts{mathparse}   = 0;
     $$opts{nomathparse} = 1; }    #Backwards compatible
-  $$opts{verbosity} = 0     unless defined $$opts{verbosity};
-  $$opts{preload}   = []    unless defined $$opts{preload};
-  $$opts{paths}     = ['.'] unless defined $$opts{paths};
+  $$opts{verbosity} = 0  unless defined $$opts{verbosity};
+  $$opts{preload}   = [] unless defined $$opts{preload};
+  $$opts{plugin}    = [] unless defined $$opts{plugin};
+  activate_plugin($_) foreach (split(',', @{ $$opts{plugin} }[0]));
+  $$opts{paths} = ['.'] unless defined $$opts{paths};
   @{ $$opts{paths} } = map { pathname_canonical($_) } @{ $$opts{paths} };
   foreach (('destination', 'dbfile', 'sourcedirectory', 'sitedirectory')) {
     $$opts{$_} = pathname_canonical($$opts{$_}) if defined $$opts{$_};
@@ -727,6 +731,8 @@ latexmls/latexmlc [options]
  --output=file      [obsolete synonym for --destination]
  --preload=module   requests loading of an optional module;
                     can be repeated
+ --plugin=name      activate plugin located in plugin path;
+                    can be repeated
  --preamble=file    loads a tex file containing document
                     frontmatter. MUST include \begin{document}
                     or equivalent
@@ -837,6 +843,10 @@ Specifies the destination file; by default the XML is written to STDOUT.
 Requests the loading of an optional module or package.  This may be useful if the TeX code
     does not specificly require the module (eg. through input or usepackage).
     For example, use C<--preload=LaTeX.pool> to force LaTeX mode.
+
+=item C<--plugin>=I<file>
+
+Activate a plugin.
 
 =item C<--preamble>=I<file>
 

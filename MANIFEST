@@ -145,6 +145,7 @@ lib/LaTeXML/Util/Radix.pm
 lib/LaTeXML/Util/Image.pm
 lib/LaTeXML/Util/Geometry.pm
 lib/LaTeXML/Util/Transform.pm
+lib/LaTeXML/Util/Plugin.pm
 
 #==================================================
 # Document Model
