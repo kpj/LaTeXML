@@ -579,8 +579,8 @@ sub _checkOptionValue {
 sub _read_options_file {
   my ($file) = @_;
   my $opts = [];
-  my $config = _load_profile($file);
   my @used_keys;
+  my $config = _load_profile($file);
 
   foreach (@{ $$config{requires} }) {
     my ($key, $value) = get_key_value($_);
@@ -609,6 +609,11 @@ sub _load_profile {
     my ($key, $value) = get_key_value($_);
     CORE::push @required_keys, $key; }
 
+  my @default_keys;
+  foreach (@{ $$config{defaults} }) {
+    my ($key, $value) = get_key_value($_);
+    CORE::push @default_keys, $key; }
+
   foreach (@{ $$config{dependencies} }) {
     if (ref $_ eq ref {}) {
       my $key   = (CORE::keys %{$_})[0];
@@ -624,7 +629,7 @@ sub _load_profile {
 
         foreach (@{ $$dep_config{defaults} }) {
             my ($key, $value) = get_key_value($_);
-            if (not $key ~~ @required_keys) {
+            if (not $key ~~ @required_keys and not $key ~~ @default_keys) {
                 CORE::push @{ $$config{defaults} }, { $key => $value }; } }
       } }
   }
