@@ -578,31 +578,72 @@ sub _checkOptionValue {
 ### This is from t/lib/TestDaemon.pm and ideally belongs in Util::Pathname
 sub _read_options_file {
   my ($file) = @_;
-  print STDERR "(Loading profile $file...";
   my $opts = [];
+  my $config = _load_profile($file);
+  my @used_keys;
 
-  my $yaml;
-  eval { $yaml = YAML::Tiny->read($file) }
-    or Error('invalid', $file, "Invalid options file '$file'");
+  foreach (@{ $$config{requires} }) {
+    my ($key, $value) = get_key_value($_);
+    $value = $value ? "=$value" : '';
+    CORE::push @used_keys, $key;
+    CORE::push @$opts, "--$key" . $value; }
 
-  my $config = $$yaml[0][0];
-  foreach ($$config{options}) {
-    foreach (@$_) {
-      my $key   = "";
-      my $value = "";
-
-      if (ref $_ eq ref {}) {
-        # --foo=bar
-        $key   = (CORE::keys %{$_})[0];
-        $value = $$_{$key}; }
-      else {
-        # --foo
-        $key = $_; }
-      $value = $value ? "=$value" : '';
+  foreach (@{ $$config{defaults} }) {
+    my ($key, $value) = get_key_value($_);
+    $value = $value ? "=$value" : '';
+    if (not $key ~~ @used_keys) {
       CORE::push @$opts, "--$key" . $value; } }
 
-  print STDERR " )\n";
   return $opts; }
+
+sub _load_profile {
+  my ($file) = @_;
+  print STDERR "(Loading profile $file...";
+
+  my $config;
+  eval { $config = YAML::Tiny->read($file)->[0] }
+    or Error('invalid', $file, "Invalid options file '$@'");
+
+  my @required_keys;
+  foreach (@{ $$config{requires} }) {
+    my ($key, $value) = get_key_value($_);
+    CORE::push @required_keys, $key; }
+
+  foreach (@{ $$config{dependencies} }) {
+    if (ref $_ eq ref {}) {
+      my $key   = (CORE::keys %{$_})[0];
+      my $value = $$_{$key};
+
+      if ($key eq "profile") {
+        my $dep_config = _load_profile($value);
+
+        foreach (@{ $$dep_config{requires} }) {
+          my ($key, $value) = get_key_value($_);
+          if (not $key ~~ @required_keys) {
+            CORE::push @{ $$config{requires} }, { $key => $value }; } }
+
+        foreach (@{ $$dep_config{defaults} }) {
+            my ($key, $value) = get_key_value($_);
+            if (not $key ~~ @required_keys) {
+                CORE::push @{ $$config{defaults} }, { $key => $value }; } }
+      } }
+  }
+
+  print STDERR " )\n";
+  return $config; }
+
+sub get_key_value {
+  my ($entry) = @_;
+  my $key;
+  my $value;
+
+  if (ref $_ eq ref {}) { # --foo=bar
+    $key   = (CORE::keys %{$_})[0];
+    $value = $$_{$key}; }
+  else { # --foo
+    $key = $_; }
+
+  return ($key, $value); }
 
 1;
 
