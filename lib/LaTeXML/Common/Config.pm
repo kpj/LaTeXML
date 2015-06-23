@@ -586,11 +586,21 @@ sub _read_options_file {
     my ($key, $value) = get_key_value($_);
     $value = $value ? "=$value" : '';
     CORE::push @used_keys, $key;
+
+    if (filter_key($key)) {
+      carp("Warning:invalid:Parameter '$key' was filtered\n");
+      next; }
+
     CORE::push @$opts, "--$key" . $value; }
 
   foreach (@{ $$config{defaults} }) {
     my ($key, $value) = get_key_value($_);
     $value = $value ? "=$value" : '';
+
+    if (filter_key($key)) {
+      carp("Warning:invalid:Parameter '$key' was filtered\n");
+      next; }
+
     if (not $key ~~ @used_keys) {
       CORE::push @$opts, "--$key" . $value; } }
 
@@ -602,7 +612,7 @@ sub _load_profile {
 
   my $config;
   eval { $config = YAML::Tiny->read($file)->[0] }
-    or Error('invalid', $file, "Invalid options file '$@'");
+    or Error('invalid', $file, "Invalid profile '$@'");
 
   my @required_keys;
   foreach (@{ $$config{requires} }) {
@@ -642,6 +652,15 @@ sub get_key_value {
     $key = $_; }
 
   return ($key, $value); }
+
+sub filter_key {
+  my ($key) = @_;
+  my @filter_keys = ("profile", "format");
+
+  if ($key ~~ @filter_keys) {
+      return 1; }
+
+  return 0; }
 
 1;
 
