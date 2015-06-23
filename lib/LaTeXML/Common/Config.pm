@@ -598,7 +598,7 @@ sub _read_options_file {
 
 sub _load_profile {
   my ($file) = @_;
-  print STDERR "(Loading profile $file...";
+  print STDERR "(Loading profile $file... ";
 
   my $config;
   eval { $config = YAML::Tiny->read($file)->[0] }
@@ -615,26 +615,19 @@ sub _load_profile {
     CORE::push @default_keys, $key; }
 
   foreach (@{ $$config{dependencies} }) {
-    if (ref $_ eq ref {}) {
-      my $key   = (CORE::keys %{$_})[0];
-      my $value = $$_{$key};
+    my $dep_config = _load_profile($_);
 
-      if ($key eq "profile") {
-        my $dep_config = _load_profile($value);
+    foreach (@{ $$dep_config{requires} }) {
+      my ($key, $value) = get_key_value($_);
+      if (not $key ~~ @required_keys) {
+        CORE::push @{ $$config{requires} }, { $key => $value }; } }
 
-        foreach (@{ $$dep_config{requires} }) {
-          my ($key, $value) = get_key_value($_);
-          if (not $key ~~ @required_keys) {
-            CORE::push @{ $$config{requires} }, { $key => $value }; } }
+    foreach (@{ $$dep_config{defaults} }) {
+      my ($key, $value) = get_key_value($_);
+      if (not $key ~~ @required_keys and not $key ~~ @default_keys) {
+        CORE::push @{ $$config{defaults} }, { $key => $value }; } } }
 
-        foreach (@{ $$dep_config{defaults} }) {
-            my ($key, $value) = get_key_value($_);
-            if (not $key ~~ @required_keys and not $key ~~ @default_keys) {
-                CORE::push @{ $$config{defaults} }, { $key => $value }; } }
-      } }
-  }
-
-  print STDERR " )\n";
+  print STDERR ")\n";
   return $config; }
 
 sub get_key_value {
