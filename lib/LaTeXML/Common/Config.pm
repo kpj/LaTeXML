@@ -582,8 +582,8 @@ sub _read_options_file {
   my @used_keys;
   my $config = _load_profile($file);
 
-  foreach (@{ $$config{requires} }) {
-    my ($key, $value) = get_key_value($_);
+  for my $option (@{ $$config{requires} }) {
+    my ($key, $value) = get_key_value($option);
     $value = $value ? "=$value" : '';
     CORE::push @used_keys, $key;
 
@@ -593,8 +593,8 @@ sub _read_options_file {
 
     CORE::push @$opts, "--$key" . $value; }
 
-  foreach (@{ $$config{defaults} }) {
-    my ($key, $value) = get_key_value($_);
+  for my $option (@{ $$config{defaults} }) {
+    my ($key, $value) = get_key_value($option);
     $value = $value ? "=$value" : '';
 
     if (filter_key($key)) {
@@ -615,25 +615,25 @@ sub _load_profile {
     or Error('invalid', $file, "Invalid profile '$@'");
 
   my @required_keys;
-  foreach (@{ $$config{requires} }) {
-    my ($key, $value) = get_key_value($_);
+  for my $option (@{ $$config{requires} }) {
+    my ($key, $value) = get_key_value($option);
     CORE::push @required_keys, $key; }
 
   my @default_keys;
-  foreach (@{ $$config{defaults} }) {
-    my ($key, $value) = get_key_value($_);
+  for my $option (@{ $$config{defaults} }) {
+    my ($key, $value) = get_key_value($option);
     CORE::push @default_keys, $key; }
 
-  foreach (@{ $$config{dependencies} }) {
-    my $dep_config = _load_profile($_);
+  for my $dep_file(@{ $$config{dependencies} }) {
+    my $dep_config = _load_profile($dep_file);
 
-    foreach (@{ $$dep_config{requires} }) {
-      my ($key, $value) = get_key_value($_);
+    for my $option (@{ $$dep_config{requires} }) {
+      my ($key, $value) = get_key_value($option);
       if (not $key ~~ @required_keys) {
         CORE::push @{ $$config{requires} }, { $key => $value }; } }
 
-    foreach (@{ $$dep_config{defaults} }) {
-      my ($key, $value) = get_key_value($_);
+    for my $option (@{ $$dep_config{defaults} }) {
+      my ($key, $value) = get_key_value($option);
       if (not $key ~~ @required_keys and not $key ~~ @default_keys) {
         CORE::push @{ $$config{defaults} }, { $key => $value }; } } }
 
@@ -645,11 +645,11 @@ sub get_key_value {
   my $key;
   my $value;
 
-  if (ref $_ eq ref {}) {    # --foo=bar
-    $key   = (CORE::keys %{$_})[0];
-    $value = $$_{$key}; }
+  if (ref $entry eq ref {}) {    # --foo=bar
+    $key   = (CORE::keys %{$entry})[0];
+    $value = $$entry{$key}; }
   else {                     # --foo
-    $key = $_; }
+    $key = $entry; }
 
   return ($key, $value); }
 
