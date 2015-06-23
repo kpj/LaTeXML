@@ -645,10 +645,10 @@ sub get_key_value {
   my $key;
   my $value;
 
-  if (ref $_ eq ref {}) { # --foo=bar
+  if (ref $_ eq ref {}) {    # --foo=bar
     $key   = (CORE::keys %{$_})[0];
     $value = $$_{$key}; }
-  else { # --foo
+  else {                     # --foo
     $key = $_; }
 
   return ($key, $value); }
@@ -658,7 +658,7 @@ sub filter_key {
   my @filter_keys = ("profile", "format");
 
   if ($key ~~ @filter_keys) {
-      return 1; }
+    return 1; }
 
   return 0; }
 
