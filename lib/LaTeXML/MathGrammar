@@ -67,6 +67,7 @@ Anything : AnythingAny /^\Z/                    { $item[1]; }
 AnythingAny :
           Formulae 
         | OPEN Formulae CLOSE             { Fence($item[1],$item[2],$item[3]); }
+        | OPEN Formulae MIDDLE Formulae CLOSE             { Fence($item[1],$item[2],$item[3],$item[4],$item[5]); }
         | modifierFormulae
         | OPEN modifierFormula CLOSE      { Fence($item[1],$item[2],$item[3]); }
         | MODIFIER
