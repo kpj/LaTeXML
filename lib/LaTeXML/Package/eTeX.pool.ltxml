@@ -29,10 +29,12 @@ DefPrimitiveI('\protected', undef, sub {
 DefMacro('\detokenize{}', sub { Explode(UnTeX($_[1])); });
 
 # \unexpanded
-# This is obviously not right, but... how?
-# Should \noexpand be stuffed throughout?
-# or is something related to \protected useable?
-DefMacro('\unexpanded {}', '#1');
+DefMacro('\unexpanded {}', sub {
+  my ($gullet, $toks) = @_;
+  my @ret = ();
+  for my $t ($toks->unlist) {
+    push @ret, (T_CS('\noexpand'), $t); }
+  return Tokens(@ret); } );
 
 #======================================================================
 # 3.2. Provision for re-scanning already read text
